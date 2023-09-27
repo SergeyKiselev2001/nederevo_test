@@ -21,7 +21,10 @@ const { CHATS } = require("./secret");
 
 bot.setMyCommands([{ command: "/start", description: "Начать" }]);
 
+console.log("STARTED")
+
 bot.on("message", (msg) => {
+  console.log("MESSAGE RECEIVED")
   tryCatch(() => {
     const text = msg.text;
     const chatId = msg.chat.id;
