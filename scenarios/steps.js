@@ -1,0 +1,18 @@
+module.exports = {
+    STEP: {
+        START: "START",
+        WHERE_WE_ARE: "WHERE_WE_ARE",
+        OUR_DIRECTIONS: "OUR_DIRECTIONS",
+        START_REGISTRATION: "START_REGISTRATION",
+        REQUEST_PHONE: "REQUEST_PHONE",
+        PREFER_WAY_TO_CONTACT: "PREFER_WAY_TO_CONTACT",
+        END: "END",
+    
+        YOGA: "YOGA",
+        RASTYAJKA: "RASTYAJKA",
+        AERO: "AERO",
+        HEALTHY_SPINE: "HEALTHY_SPINE",
+        MFR_TRAINING: "MFR_TRAINING",
+        PILATES: "PILATES",
+      },
+}

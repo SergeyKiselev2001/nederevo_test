@@ -1,106 +1,169 @@
-const { start } = require("./scenarios/start");
-const { registration, fillAgain, sendData } = require("./scenarios/form");
-const { fillAgainKeyboard, shareNumberKeyboard } = require("./keyboards/index");
-const { remindHandler, tryCatch } = require("./utils");
-const { getSessions } = require("./sessions");
+const { tryCatch } = require("./utils");
+const { setSessionStep, getSessionByChatID, createSession } = require("./sessions");
 const { bot } = require("./bot");
+const {
+  step_whereWeAre,
+  step_start,
+  step_ourDirections,
+  step_yoga,
+  step_rastyajka,
+  step_aero,
+  step_healthySpine,
+  step_mfr,
+  step_pilates,
+  step_registration,
+  step_requestPhone,
+  step_preferWayToContact,
+  step_end,
+} = require("./scenarios");
+const { STEP } = require("./scenarios/steps");
+const { CHATS } = require("./secret");
 
 bot.setMyCommands([{ command: "/start", description: "Начать" }]);
 
-bot.on("message", async (msg) => {
-  console.log(msg)
-  tryCatch(async () => {
+bot.on("message", (msg) => {
+  tryCatch(() => {
     const text = msg.text;
     const chatId = msg.chat.id;
 
-    if (text == "/start") {
-      start(bot, chatId);
+    if (chatId == CHATS.MAIN) {
+      return;
     }
 
-    const session = getSessions().find((session) => session.chatId == chatId);
+    if (text == "/start") {
+      step_start(chatId, msg.from);
+      setSessionStep(chatId, STEP.START);
+      return;
+    }
 
-    if (session) {
-      if (session.step == 0) {
-        session.name = text;
-        clearTimeout(session.timerId);
-        session.timerId = remindHandler(
-          chatId,
-          "Вы не указали телефон =(",
-          7000,
-          bot
+    if (!getSessionByChatID(chatId)) {
+      step_start(chatId, msg.from);
+      setSessionStep(chatId, STEP.START);
+      return;
+    }
+
+    const session = getSessionByChatID(chatId);
+
+    if (text == "Йога") {
+      setSessionStep(chatId, STEP.YOGA);
+      step_yoga(chatId);
+      return;
+    }
+
+    if (text == "Растяжка") {
+      setSessionStep(chatId, STEP.RASTYAJKA);
+      step_rastyajka(chatId);
+      return;
+    }
+    if (text == "Аэро - занятие в гамаках") {
+      setSessionStep(chatId, STEP.AERO);
+      step_aero(chatId);
+      return;
+    }
+    if (text == "Здоровая спина") {
+      setSessionStep(chatId, STEP.HEALTHY_SPINE);
+      step_healthySpine(chatId);
+      return;
+    }
+    if (text == "МФР тренировка") {
+      setSessionStep(chatId, STEP.MFR_TRAINING);
+      step_mfr(chatId);
+      return;
+    }
+    if (text == "Пилатес") {
+      setSessionStep(chatId, STEP.PILATES);
+      step_pilates(chatId);
+      return;
+    }
+
+    if (text == "Записаться на пробное занятие") {
+      setSessionStep(chatId, STEP.START_REGISTRATION);
+      step_registration(chatId);
+      return;
+    }
+
+    if (text == "Где мы находимся?") {
+      setSessionStep(chatId, STEP.WHERE_WE_ARE);
+      step_whereWeAre(chatId);
+      return;
+    }
+
+    if (text == "Познакомиться с направлениями") {
+      setSessionStep(chatId, STEP.OUR_DIRECTIONS);
+      step_ourDirections(chatId);
+      return;
+    }
+
+    if (text == "Записаться на пробное занятие") {
+      setSessionStep(chatId, STEP.START_REGISTRATION);
+      step_registration(chatId);
+      return;
+    }
+
+    if (session.step == STEP.REQUEST_PHONE) {
+      getSessionByChatID(chatId).name = text;
+      step_requestPhone(chatId);
+      return;
+    }
+
+    if (session.step == STEP.PREFER_WAY_TO_CONTACT) {
+      getSessionByChatID(chatId).phone =
+        text ||
+        msg.contact.phone_number ||
+        bot.sendMessage(
+          CHATS.MAIN,
+          `Ошибка с номером телефона ${JSON.stringify(msg)} `,
+          { message_thread_id: CHATS.LOGS }
         );
-        session.step = 1;
+      step_preferWayToContact(chatId);
+      return;
+    }
 
-        await bot.sendMessage(chatId, "Введите номер телефона", shareNumberKeyboard());
-        return;
-      }
-
-      if (session.step == 1) {
-        console.log("STEP 1", msg)
-        session.phone = text || msg.contact.phone_number;
-        session.step = 2;
-
-        clearTimeout(session.timerId);
-        session.timerId = remindHandler(
-          chatId,
-          "Скажите, когда с вами связаться? =(",
-          7000,
-          bot
-        );
-
-        await bot.sendMessage(chatId, "Когда с вами удобнее связаться?");
-        return;
-      }
-
-      if (session.step == 2) {
-        session.time_to_contact = text;
-        session.step = 3;
-        clearTimeout(session.timerId);
-        session.timerId = remindHandler(
-          chatId,
-          "Отправить форму или создать новую?",
-          7000,
-          bot
-        );
-
-        await bot.sendMessage(
-          chatId,
-          `Имя: ${session.name}
-Телефон: ${session.phone}
-Время для связи: ${session.time_to_contact}
-  
-Отправить?`,
-          fillAgainKeyboard(session.chatId)
-        );
-
-        return;
-      }
+    if (session.step == STEP.END) {
+      getSessionByChatID(chatId).preferWayToContact = text;
+      step_end(chatId, msg);
+      return;
     }
   });
 });
 
-bot.on("callback_query", async (msg) => {
-  tryCatch(async () => {
+bot.on("callback_query", (msg) => {
+  tryCatch(() => {
     const queryParam = msg.data;
     const chatId = msg.message.chat.id;
 
-    if (queryParam == "registration") {
-      console.log("НОВАЯ РЕГИСТРАЦИЯ");
-      console.log("ТЕКУЩИЕ СЕССИИ", getSessions());
-      registration(bot, chatId);
+    if (!getSessionByChatID(chatId)) {
+      step_start(chatId);
+      setSessionStep(chatId, STEP.START);
       return;
     }
 
-    if (queryParam == "fillAgain") {
-      fillAgain(bot, chatId);
+    if (queryParam == STEP.OUR_DIRECTIONS) {
+      setSessionStep(chatId, STEP.OUR_DIRECTIONS);
+      step_ourDirections(chatId);
       return;
     }
 
-    if (queryParam.includes("sendData")) {
-      console.log("ОТПРАВКА ДАННЫХ");
-      console.log("ТЕКУЩИЕ СЕССИИ", getSessions());
-      sendData(bot, chatId, queryParam);
+    if (queryParam == STEP.START_REGISTRATION) {
+      setSessionStep(chatId, STEP.START_REGISTRATION);
+      step_registration(chatId);
+      return;
+    }
+
+    if (queryParam == "PHONE_CALL") {
+      getSessionByChatID(chatId).preferWayToContact = "Телефонный звонок";
+      setSessionStep(chatId, STEP.END);
+      step_end(chatId, msg);
+      return;
+    }
+
+    if (queryParam == "WHATS_APP") {
+      getSessionByChatID(chatId).preferWayToContact = "WhatsApp";
+      setSessionStep(chatId, STEP.END);
+      step_end(chatId, msg);
       return;
     }
   });
+
+  return;
 });
